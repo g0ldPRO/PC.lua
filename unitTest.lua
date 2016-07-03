@@ -10,6 +10,6 @@ function onPathAction()
 	elseif not pc:hasDatas() then
 		return pc:gatherDatas()
 	end
-	log(pc.box[1].pokemon[1].nature)
+	log(pc:toString())
 	fatal("THE END")
 end

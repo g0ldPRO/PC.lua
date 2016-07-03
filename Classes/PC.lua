@@ -22,13 +22,6 @@ function PC:new()
 	return o
 end
 
-function PC:refresh()
-	self.boxCount = getPCBoxCount()
-	for i = 0, self.boxCount do
-		self.box[i] = Box:new(i)
-	end
-end
-
 function PC:isValidIndex(boxIndex, pokemonIndex)
 	if getCurrentPCBoxId() == boxIndex and pokemonIndex <= getCurrentBoxSize() then
 		return true
@@ -55,7 +48,7 @@ function PC:use()
 		end
 	else
 		if not usePC() then
-			sys.error("libpc.use", "Tried to use the PC in a zone without PC")
+			sys.error("PC:use", "Tried to use the PC in a zone without PC")
 		end
 	end
 end
@@ -68,7 +61,7 @@ function PC:swap(boxIndex, boxPokemonIndex, teamIndex)
 		return false
 	else
 		if not swapPokemonFromPC(boxIndex, boxPokemonIndex, teamIndex) then
-			return sys.error("libpc.swap", "Failed to swap")
+			return sys.error("PC:swap", "Failed to swap")
 		else
 			return true
 		end
@@ -84,7 +77,7 @@ function PC:deposit(teamIndex)
 		return false
 	else
 		if not depositPokemonToPC(__teamIndex) then
-			return sys.error("libpc.deposit", "Failed to deposit")
+			return sys.error("PC:deposit", "Failed to deposit")
 		end
 		return true
 	end
@@ -99,11 +92,11 @@ function PC:withdraw(boxIndex, boxPokemonIndex)
 		return false
 	else
 		if getTeamSize() == 6 then
-			return sys.error("libpc.withdraw", "Team full. Could not withdraw the pokemon "
+			return sys.error("PC:withdraw", "Team full. Could not withdraw the pokemon "
 				.. getPokemonNameFromPC(boxIndex, boxPokemonIndex))
 		end
 		if not withdrawPokemonFromPC(boxIndex, boxPokemonIndex, teamIndex) then
-			return sys.error("libpc.deposit", "Failed to deposit")
+			return sys.error("PC:deposit", "Failed to deposit")
 		end
 		return true
 	end
@@ -111,48 +104,61 @@ function PC:withdraw(boxIndex, boxPokemonIndex)
 end
 
 function PC:hasDatas()
-	if self.boxCount == nil or self.box[self.boxCount] == nil then
+	if self.boxCount == nil
+		or (getPCBoxCount() > 0 and self.box[self.boxCount] == nil) then
 		return false
 	end
 	return true
 end
 
 function PC:gatherDatasCondition()
-	if getCurrentPCBoxId() ~= self.currentBoxToRefresh or not isCurrentPCBoxRefreshed()
-		or self.box[self.currentBoxToRefresh] == nil then
-		log("condition: true [box: " .. self.currentBoxToRefresh .. "]")
-		return true -- there is still something to do
-	end
-	log("condition: false")
-	return false
+	return not self:hasDatas()
 end
 
 function PC:gatherDatasAction()
-	log("action A: " .. self.currentBoxToRefresh)
 	if getCurrentPCBoxId() ~= self.currentBoxToRefresh then
-		log("action B: " .. self.currentBoxToRefresh)
 		return openPCBox(self.currentBoxToRefresh)
 	elseif isCurrentPCBoxRefreshed() then
-		log("action C: " .. self.currentBoxToRefresh)
+		self.boxCount = getPCBoxCount()
+		if self.boxCount <= 0 then
+			self.boxCount = 0
+			return true
+		end
 		self.box[self.currentBoxToRefresh] = self.Box:new(self.currentBoxToRefresh)
-		log("box not nil: " .. self.currentBoxToRefresh)
 		if getPCBoxCount() > self.currentBoxToRefresh then
 			self.currentBoxToRefresh = self.currentBoxToRefresh + 1
 			return openPCBox(self.currentBoxToRefresh)
 		end
 		return true
 	else
-		log("action D: " .. self.currentBoxToRefresh)
 		return true
 	end
 end
 
 function PC:gatherDatas()
 	sys.assert(isPCOpen(), "PC:gatherDatas", "PC is closed")
-	self.boxCount = getPCBoxCount()
 	self.currentBoxToRefresh = 1
 	local actions = Actions:new(self, self.gatherDatasCondition, self.gatherDatasAction)
 	actions:run()
+end
+
+function PC:toString()
+	local value = ""
+	if self.boxCount == nil then
+		value = "PC object has no datas"
+	elseif self.boxCount == 0 then
+		value = "PC is empty"
+	else
+		value = "PC has " .. self.boxCount .. " boxes:\n"
+		for i = 1, self.boxCount do
+			value = value .. " Box #" .. i .. " (" .. self.box[i].size .. " pokemons):\n"
+			value = value .. self.box[i]:toString("  ")
+			if i ~= self.boxCount then
+				value = value .. "\n"
+			end
+		end
+	end
+	return value
 end
 
 -- sortingFunction must take 2 pokemons  as parameters (id + box) and return a bool
